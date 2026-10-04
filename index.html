@@ -1,0 +1,1006 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Budget Boussole</title>
+<meta name="description" content="Suivi du budget familial à deux">
+<meta name="theme-color" content="#1f4e5f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Budget">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --card: #ffffff;
+    --ink: #1d2a30;
+    --muted: #6b7a80;
+    --line: #e3ddd2;
+    --primary: #1f4e5f;
+    --primary-soft: #e3eef1;
+    --green: #2e7d4f;
+    --green-soft: #e3f2e8;
+    --orange: #c9701a;
+    --orange-soft: #fbeedd;
+    --red: #b8322a;
+    --red-soft: #f8e1df;
+    --grey: #a8b1b5;
+    --radius: 14px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .hidden { display: none !important; }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  /* ---------- Connexion ---------- */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .login-card { width: 100%; max-width: 380px; background: var(--card); border-radius: 20px; padding: 28px 22px; box-shadow: 0 8px 30px rgba(31,78,95,.12); }
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .brand img { width: 48px; height: 48px; border-radius: 12px; }
+  .brand h1 { margin: 0; font-size: 1.4rem; }
+  .brand p { margin: 0; color: var(--muted); font-size: .9rem; }
+
+  /* ---------- Structure ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--primary); color: #fff;
+    padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  }
+  .top-row { max-width: 720px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .month-nav { display: flex; align-items: center; gap: 4px; }
+  .month-nav button { background: rgba(255,255,255,.15); border: 0; color: #fff; width: 36px; height: 36px; border-radius: 10px; font-size: 1.2rem; }
+  .month-nav button:disabled { opacity: .35; cursor: default; }
+  #month-label { font-weight: 600; min-width: 140px; text-align: center; }
+  #who { background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 10px; padding: 7px 8px; }
+  #who option { color: var(--ink); }
+  main { max-width: 720px; margin: 0 auto; padding: 14px 16px calc(110px + env(safe-area-inset-bottom)); }
+  nav.tabs {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    background: var(--card); border-top: 1px solid var(--line);
+    display: flex; justify-content: center;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  nav.tabs button { flex: 1; max-width: 180px; background: none; border: 0; padding: 10px 4px 12px; color: var(--muted); font-size: .8rem; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  nav.tabs button span { font-size: 1.25rem; line-height: 1; }
+  nav.tabs button.active { color: var(--primary); font-weight: 600; }
+  #fab {
+    position: fixed; right: max(16px, calc(50% - 344px)); bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 11;
+    width: 60px; height: 60px; border-radius: 50%; border: 0;
+    background: var(--primary); color: #fff; font-size: 2rem; line-height: 1;
+    box-shadow: 0 6px 18px rgba(31,78,95,.35);
+  }
+
+  /* ---------- Éléments communs ---------- */
+  h2 { font-size: 1.1rem; margin: 18px 0 10px; }
+  .card { background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .btn { border: 0; border-radius: 10px; padding: 10px 14px; background: var(--primary); color: #fff; font-weight: 600; }
+  .btn.secondary { background: var(--primary-soft); color: var(--primary); }
+  .btn.danger { background: var(--red-soft); color: var(--red); }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .6; }
+  .icon-btn { border: 0; background: none; color: var(--muted); padding: 6px 8px; border-radius: 8px; font-size: 1rem; }
+  .icon-btn:hover { background: var(--bg); }
+  label.field { display: block; margin-bottom: 12px; }
+  label.field > span { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], input[type=email], input[type=password], input[type=date], select.input {
+    width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff;
+  }
+  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .muted { color: var(--muted); }
+  .small { font-size: .85rem; }
+  .error { color: var(--red); font-size: .9rem; min-height: 1.2em; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .spacer { flex: 1; }
+  .empty { text-align: center; color: var(--muted); padding: 28px 12px; }
+
+  /* ---------- Bandeaux ---------- */
+  .banner { border-radius: var(--radius); padding: 12px 14px; margin-bottom: 12px; }
+  .banner.alert { background: var(--red-soft); border-left: 4px solid var(--red); }
+  .banner.info { background: var(--primary-soft); border-left: 4px solid var(--primary); }
+  .banner ul { margin: 6px 0 10px; padding-left: 18px; }
+  .banner .btn { padding: 7px 12px; font-size: .9rem; }
+
+  /* ---------- Tableau de bord ---------- */
+  .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .total { background: var(--card); border-radius: var(--radius); padding: 10px; text-align: center; }
+  .total b { display: block; font-size: 1.05rem; margin-top: 2px; }
+  .total small { color: var(--muted); font-size: .78rem; }
+  details.cat { background: var(--card); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; border-left: 5px solid var(--grey); }
+  details.cat.green { border-left-color: var(--green); }
+  details.cat.orange { border-left-color: var(--orange); }
+  details.cat.red { border-left-color: var(--red); }
+  details.cat > summary { list-style: none; padding: 12px 14px; cursor: pointer; }
+  details.cat > summary::-webkit-details-marker { display: none; }
+  .line-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .line-head .name { font-weight: 600; }
+  .line-head .amounts { font-size: .9rem; white-space: nowrap; }
+  .bar { height: 8px; background: var(--bg); border-radius: 6px; margin: 7px 0 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 6px; background: var(--grey); }
+  .bar i.green { background: var(--green); }
+  .bar i.orange { background: var(--orange); }
+  .bar i.red { background: var(--red); }
+  .status { font-size: .82rem; }
+  .status.green { color: var(--green); }
+  .status.orange { color: var(--orange); }
+  .status.red { color: var(--red); font-weight: 600; }
+  .status.none { color: var(--muted); }
+  .sub { padding: 10px 14px 10px 22px; border-top: 1px solid var(--line); }
+  .sub .name { font-weight: 500; }
+  .pill { display: inline-block; font-size: .72rem; padding: 1px 7px; border-radius: 10px; background: var(--primary-soft); color: var(--primary); margin-left: 6px; vertical-align: middle; }
+
+  /* ---------- Dépenses ---------- */
+  .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .exp { display: flex; gap: 10px; align-items: center; padding: 11px 14px; border-top: 1px solid var(--line); cursor: pointer; }
+  .exp:first-child { border-top: 0; }
+  .exp .date { width: 44px; text-align: center; font-size: .8rem; color: var(--muted); line-height: 1.15; }
+  .exp .date b { display: block; font-size: 1.1rem; color: var(--ink); }
+  .exp .info { flex: 1; min-width: 0; }
+  .exp .info .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .exp .info .d { font-size: .8rem; color: var(--muted); }
+  .exp .amt { font-weight: 600; white-space: nowrap; }
+  .list { background: var(--card); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+  .month-sum { display: flex; justify-content: space-between; padding: 0 4px 8px; color: var(--muted); font-size: .9rem; }
+
+  /* ---------- Budget ---------- */
+  .bcat { background: var(--card); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+  .bcat-head { display: flex; align-items: center; gap: 4px; padding: 10px 8px 10px 14px; background: var(--primary-soft); }
+  .bcat-head .name { font-weight: 600; flex: 1; }
+  .bcat-head .sum { font-size: .9rem; color: var(--primary); margin-right: 4px; white-space: nowrap; }
+  .bsub { display: grid; grid-template-columns: 1fr 108px; gap: 6px 8px; align-items: center; padding: 10px 8px 10px 14px; border-top: 1px solid var(--line); }
+  .bsub .name { font-weight: 500; }
+  .bsub .money-in { position: relative; }
+  .bsub .money-in input { width: 100%; padding: 8px 24px 8px 8px; border: 1px solid var(--line); border-radius: 8px; text-align: right; background: #fff; }
+  .bsub .money-in::after { content: "€"; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .bsub .opts { grid-column: 1 / -1; display: flex; align-items: center; gap: 2px; font-size: .85rem; color: var(--muted); }
+  .bsub .opts label { display: flex; align-items: center; gap: 6px; margin-right: auto; }
+  .bsub .detail { grid-column: 1 / -1; font-size: .8rem; color: var(--muted); }
+  .add-sub { display: block; width: 100%; border: 0; border-top: 1px dashed var(--line); background: none; color: var(--primary); padding: 11px 14px; text-align: left; font-weight: 600; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .tr { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: .9rem; align-items: center; }
+  .tr:first-child { border-top: 0; }
+  .tr .info { flex: 1; }
+
+  /* ---------- Réglages ---------- */
+  .acc { display: flex; align-items: center; padding: 10px 8px 10px 14px; border-top: 1px solid var(--line); }
+  .acc:first-child { border-top: 0; }
+  .acc .name { flex: 1; }
+
+  /* ---------- Fenêtres ---------- */
+  dialog { border: 0; border-radius: 20px; padding: 0; width: min(440px, calc(100vw - 24px)); max-height: calc(100vh - 24px); }
+  dialog::backdrop { background: rgba(20,30,35,.45); }
+  dialog form { padding: 20px 18px 18px; }
+  dialog h3 { margin: 0 0 14px; }
+  .big-amount { font-size: 1.8rem !important; font-weight: 600; text-align: right; }
+  .dlg-actions { display: flex; gap: 8px; margin-top: 6px; }
+  .dlg-actions .btn { flex: 1; }
+
+  #toast { position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; z-index: 50; font-size: .9rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+  #loading { text-align: center; padding: 60px 16px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ===================== Connexion ===================== -->
+<div id="login" class="hidden">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="brand">
+      <img src="icon-192.png" alt="">
+      <div><h1>Budget Boussole</h1><p>Notre budget, à deux</p></div>
+    </div>
+    <label class="field"><span>Adresse e-mail</span><input type="email" id="login-email" autocomplete="username" required></label>
+    <label class="field"><span>Mot de passe</span><input type="password" id="login-pass" autocomplete="current-password" required></label>
+    <div class="error" id="login-error"></div>
+    <button class="btn block" type="submit" id="login-btn">Se connecter</button>
+  </form>
+</div>
+
+<!-- ===================== Application ===================== -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="top-row">
+      <div class="month-nav">
+        <button type="button" data-act="monthPrev" id="btn-prev" aria-label="Mois précédent">‹</button>
+        <div id="month-label"></div>
+        <button type="button" data-act="monthNext" id="btn-next" aria-label="Mois suivant">›</button>
+      </div>
+      <select id="who" aria-label="Filtrer par personne"></select>
+    </div>
+  </header>
+
+  <main>
+    <div id="loading">Chargement…</div>
+    <section id="tab-dash" class="hidden"></section>
+    <section id="tab-exp" class="hidden"></section>
+    <section id="tab-budget" class="hidden"></section>
+    <section id="tab-settings" class="hidden"></section>
+  </main>
+
+  <button id="fab" type="button" data-act="newExpense" aria-label="Ajouter une dépense">+</button>
+
+  <nav class="tabs">
+    <button type="button" data-tab="dash" class="active"><span>◉</span>Tableau de bord</button>
+    <button type="button" data-tab="exp"><span>☰</span>Dépenses</button>
+    <button type="button" data-tab="budget"><span>✎</span>Budget</button>
+    <button type="button" data-tab="settings"><span>⚙</span>Réglages</button>
+  </nav>
+</div>
+
+<!-- ===================== Fenêtre dépense ===================== -->
+<dialog id="dlg-expense">
+  <form method="dialog" id="form-expense">
+    <h3 id="exp-title">Nouvelle dépense</h3>
+    <label class="field"><span>Montant (€)</span><input type="text" inputmode="decimal" id="exp-amount" class="big-amount" placeholder="0,00" autocomplete="off" required></label>
+    <label class="field"><span>Poste</span><select class="input" id="exp-sub" required></select></label>
+    <label class="field"><span>Payé avec</span><select class="input" id="exp-account" required></select></label>
+    <label class="field"><span>Date</span><input type="date" id="exp-date" required></label>
+    <label class="field"><span>Libellé (facultatif)</span><input type="text" id="exp-label" maxlength="80" autocomplete="off"></label>
+    <div class="small muted" id="exp-who"></div>
+    <div class="error" id="exp-error"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn secondary" data-act="closeDialog" data-id="dlg-expense">Annuler</button>
+      <button type="submit" class="btn" id="exp-save">Enregistrer</button>
+    </div>
+    <button type="button" class="btn danger block hidden" id="exp-delete" data-act="deleteExpense" style="margin-top:10px">Supprimer cette dépense</button>
+  </form>
+</dialog>
+
+<!-- ===================== Fenêtre transfert ===================== -->
+<dialog id="dlg-transfer">
+  <form method="dialog" id="form-transfer">
+    <h3>Transférer entre postes</h3>
+    <p class="small muted" id="tr-month"></p>
+    <label class="field"><span>Prendre sur</span><select class="input" id="tr-from" required></select></label>
+    <label class="field"><span>Donner à</span><select class="input" id="tr-to" required></select></label>
+    <label class="field"><span>Montant (€)</span><input type="text" inputmode="decimal" id="tr-amount" placeholder="0,00" autocomplete="off" required></label>
+    <div class="error" id="tr-error"></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn secondary" data-act="closeDialog" data-id="dlg-transfer">Annuler</button>
+      <button type="submit" class="btn">Transférer</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc,
+  query, where, limit, getDocs, writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+/* =========================================================
+   Configuration
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBjlSG47VSRM8v13bpT04BmnCkN_0o5Cwc",
+  authDomain: "budget-boussole.firebaseapp.com",
+  projectId: "budget-boussole",
+  storageBucket: "budget-boussole.firebasestorage.app",
+  messagingSenderId: "211191519605",
+  appId: "1:211191519605:web:9a773ed27eaa95baeb9b3c"
+};
+
+// Les deux seuls comptes autorisés (doivent correspondre aux règles Firestore)
+const USERS = {
+  "gfA15JJURKPgjpITQSJV90kP4nG3": "Maryline",
+  "FShtNoRA62S5rXhxk5kSy0z86ji2": "Jean-Pierre"
+};
+
+const DEFAULT_CATS = [
+  "Logement", "Impôts & taxes", "SCI", "Crédits", "Assurances", "Frais bancaires",
+  "Télécom & abonnements", "Transport", "Vie courante", "Argent de poche", "Loisirs & fêtes", "Épargne"
+];
+
+const CASH = "especes";            // origine fixe « Espèces »
+const ORANGE_THRESHOLD = 0.8;      // passage en orange à 80 %
+const HISTORY_MONTHS = 12;         // mois d'historique chargés (limite les lectures Firestore)
+
+/* =========================================================
+   Initialisation Firebase
+   ========================================================= */
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+let db;
+try {
+  db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch (e) {
+  db = initializeFirestore(app, {});
+}
+
+/* =========================================================
+   Outils
+   ========================================================= */
+const $ = (s) => document.querySelector(s);
+const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+const round2 = (v) => Math.round(v * 100) / 100;
+const money = (v) => fmt.format(round2(v || 0));
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = (n) => String(n).padStart(2, "0");
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
+function addMonths(m, k) {
+  let [y, mo] = m.split("-").map(Number);
+  mo += k;
+  while (mo > 12) { mo -= 12; y++; }
+  while (mo < 1) { mo += 12; y--; }
+  return `${y}-${pad(mo)}`;
+}
+function monthLabel(m) {
+  const [y, mo] = m.split("-").map(Number);
+  const s = new Date(y, mo - 1, 1).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function parseAmount(v) {
+  const n = parseFloat(String(v).replace(/[\s €]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? round2(n) : NaN;
+}
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* stockage indisponible */ } }
+function toast(msg) {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+}
+function fail(err) {
+  console.error(err);
+  const msg = err && err.code === "permission-denied"
+    ? "Accès refusé par la base de données."
+    : "Une erreur est survenue. Vérifiez votre connexion.";
+  toast(msg);
+}
+
+const NOW_MONTH = todayStr().slice(0, 7);
+const START = addMonths(NOW_MONTH, -HISTORY_MONTHS);
+const MAX_MONTH = addMonths(NOW_MONTH, 12);
+const RANK = { none: -1, green: 0, orange: 1, red: 2 };
+const STATUS_TEXT = { green: "Il reste", orange: "Proche du plafond", red: "Dépassé", none: "Non budgété" };
+
+/* =========================================================
+   État
+   ========================================================= */
+const S = {
+  user: null,
+  cats: [], subs: [], accounts: [],
+  budgets: {}, expenses: [], transfers: [],
+  month: NOW_MONTH, who: "all", tab: "dash",
+  expCat: "all", expAcc: "all",
+  ready: new Set(),
+  editingExpense: null
+};
+let unsubs = [];
+let memo = {};
+
+const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.name).localeCompare(String(b.name), "fr");
+const activeCats = () => S.cats;
+const activeSubs = () => S.subs.filter((s) => !s.archived && S.cats.some((c) => c.id === s.categoryId));
+const subsOf = (catId, all = false) => S.subs.filter((s) => s.categoryId === catId && (all || !s.archived));
+const subById = (id) => S.subs.find((s) => s.id === id);
+const catById = (id) => S.cats.find((c) => c.id === id);
+const subLabel = (id) => { const s = subById(id); if (!s) return "Poste supprimé"; const c = catById(s.categoryId); return (c ? c.name + " › " : "") + s.name; };
+const accountName = (id) => id === CASH ? "Espèces" : (S.accounts.find((a) => a.id === id)?.name || "Compte supprimé");
+
+/* =========================================================
+   Authentification
+   ========================================================= */
+$("#login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("#login-btn"); btn.disabled = true; $("#login-error").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, $("#login-email").value.trim(), $("#login-pass").value);
+  } catch (err) {
+    const c = err.code || "";
+    $("#login-error").textContent =
+      c.includes("invalid-credential") || c.includes("wrong-password") || c.includes("user-not-found") ? "E-mail ou mot de passe incorrect."
+      : c.includes("too-many-requests") ? "Trop de tentatives. Réessayez dans quelques minutes."
+      : c.includes("network") ? "Pas de connexion internet."
+      : "Connexion impossible.";
+  } finally { btn.disabled = false; }
+});
+
+onAuthStateChanged(auth, (user) => {
+  unsubs.forEach((u) => u()); unsubs = [];
+  S.ready.clear();
+  if (!user) {
+    S.user = null;
+    $("#app").classList.add("hidden"); $("#login").classList.remove("hidden");
+    return;
+  }
+  if (!USERS[user.uid]) {
+    $("#login-error").textContent = "Ce compte n'est pas autorisé.";
+    signOut(auth);
+    return;
+  }
+  S.user = user;
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+  $("#who").innerHTML = `<option value="all">Tous</option>` +
+    Object.entries(USERS).map(([uid, n]) => `<option value="${uid}">${esc(n)}</option>`).join("");
+  $("#who").value = S.who;
+  subscribe();
+  render();
+});
+
+/* =========================================================
+   Données en temps réel
+   ========================================================= */
+function subscribe() {
+  const listen = (q, key, fn) => unsubs.push(onSnapshot(q, (snap) => { fn(snap); S.ready.add(key); render(); }, fail));
+  const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  listen(collection(db, "categories"), "cats", (s) => { S.cats = docs(s).sort(byOrder); });
+  listen(collection(db, "subcategories"), "subs", (s) => { S.subs = docs(s).sort(byOrder); });
+  listen(collection(db, "accounts"), "accounts", (s) => { S.accounts = docs(s).sort(byOrder); });
+  listen(query(collection(db, "budgets"), where("month", ">=", START)), "budgets", (s) => {
+    S.budgets = {};
+    s.forEach((d) => { const b = d.data(); S.budgets[b.month + "_" + b.subId] = Number(b.amount) || 0; });
+  });
+  listen(query(collection(db, "expenses"), where("month", ">=", START)), "expenses", (s) => { S.expenses = docs(s); });
+  listen(query(collection(db, "transfers"), where("month", ">=", START)), "transfers", (s) => { S.transfers = docs(s); });
+}
+
+/* =========================================================
+   Calculs
+   ========================================================= */
+// Disponible = prévu + report du mois précédent + transferts reçus − transferts envoyés
+function stats(m) {
+  if (memo[m]) return memo[m];
+  const prev = m > START ? stats(addMonths(m, -1)) : null;
+  const r = {};
+  for (const s of S.subs) {
+    r[s.id] = { planned: S.budgets[m + "_" + s.id] || 0, carry: 0, tin: 0, tout: 0, spent: 0, byUser: {} };
+    if (s.carryOver && prev && prev[s.id]) r[s.id].carry = round2(prev[s.id].available - prev[s.id].spent);
+  }
+  for (const t of S.transfers) {
+    if (t.month !== m) continue;
+    if (r[t.toSub]) r[t.toSub].tin += t.amount;
+    if (r[t.fromSub]) r[t.fromSub].tout += t.amount;
+  }
+  for (const e of S.expenses) {
+    if (e.month !== m || !r[e.subId]) continue;
+    r[e.subId].spent += e.amount;
+    r[e.subId].byUser[e.uid] = (r[e.subId].byUser[e.uid] || 0) + e.amount;
+  }
+  for (const id in r) {
+    const x = r[id];
+    x.spent = round2(x.spent);
+    x.available = round2(x.planned + x.carry + x.tin - x.tout);
+  }
+  return (memo[m] = r);
+}
+function colorOf(avail, spent) {
+  if (avail <= 0) return (spent > 0 || avail < 0) ? "red" : "none";
+  const p = spent / avail;
+  return p > 1 ? "red" : p >= ORANGE_THRESHOLD ? "orange" : "green";
+}
+function statusLine(avail, spent, color) {
+  const rest = round2(avail - spent);
+  if (color === "none") return "Non budgété";
+  if (rest < 0) return `Dépassé de ${money(-rest)}`;
+  return `${STATUS_TEXT[color]} ${money(rest)}`;
+}
+function barHtml(avail, spent, color) {
+  const pct = avail > 0 ? Math.min(100, (spent / avail) * 100) : (spent > 0 ? 100 : 0);
+  return `<div class="bar"><i class="${color}" style="width:${pct.toFixed(1)}%"></i></div>`;
+}
+
+/* =========================================================
+   Affichage
+   ========================================================= */
+function render() {
+  if (!S.user) return;
+  memo = {};
+  const loaded = S.ready.size >= 6;
+  $("#loading").classList.toggle("hidden", loaded);
+  $("#month-label").textContent = monthLabel(S.month);
+  $("#btn-prev").disabled = S.month <= START;
+  $("#btn-next").disabled = S.month >= MAX_MONTH;
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === S.tab));
+  for (const t of ["dash", "exp", "budget", "settings"]) $("#tab-" + t).classList.toggle("hidden", !loaded || t !== S.tab);
+  $("#fab").classList.toggle("hidden", S.tab === "settings");
+  if (!loaded) return;
+  if (S.tab === "dash") renderDash();
+  if (S.tab === "exp") renderExpenses();
+  if (S.tab === "budget") {
+    // évite d'effacer une saisie en cours si l'autre personne modifie quelque chose
+    if (document.activeElement?.matches?.("#tab-budget input[data-budget]")) { renderBudget.pending = true; }
+    else renderBudget();
+  }
+  if (S.tab === "settings") renderSettings();
+}
+
+/* ---------- Tableau de bord ---------- */
+function renderDash() {
+  const st = stats(S.month);
+  let html = alertsHtml(st) + backupReminderHtml();
+
+  if (!S.cats.length) {
+    html += `<div class="card empty">
+      <p>Bienvenue ! Commencez par créer vos catégories.</p>
+      <button class="btn" data-act="seed">Créer mes 12 catégories</button>
+    </div>`;
+    $("#tab-dash").innerHTML = html;
+    return;
+  }
+
+  let tAvail = 0, tSpent = 0;
+  const who = S.who !== "all" ? S.who : null;
+  const blocks = activeCats().map((c) => {
+    const subs = subsOf(c.id, true).filter((s) => !s.archived || st[s.id]?.spent || st[s.id]?.available);
+    let avail = 0, spent = 0, mine = 0;
+    const rows = subs.map((s) => {
+      const x = st[s.id];
+      const col = colorOf(x.available, x.spent);
+      avail += x.available; spent += x.spent;
+      if (who) mine += x.byUser[who] || 0;
+      return { s, x, col };
+    }).sort((a, b) => RANK[b.col] - RANK[a.col] || byOrder(a.s, b.s));
+    avail = round2(avail); spent = round2(spent);
+    tAvail += avail; tSpent += spent;
+    return { c, rows, avail, spent, mine, col: colorOf(avail, spent) };
+  }).sort((a, b) => RANK[b.col] - RANK[a.col] || byOrder(a.c, b.c));
+
+  tAvail = round2(tAvail); tSpent = round2(tSpent);
+  const tRest = round2(tAvail - tSpent);
+  html += `<div class="totals">
+    <div class="total"><small>Budget</small><b>${money(tAvail)}</b></div>
+    <div class="total"><small>Dépensé</small><b>${money(tSpent)}</b></div>
+    <div class="total"><small>${tRest < 0 ? "Dépassement" : "Reste"}</small><b style="color:var(--${tRest < 0 ? "red" : "green"})">${money(Math.abs(tRest))}</b></div>
+  </div>`;
+  if (who) html += `<p class="small muted" style="margin:-4px 0 12px">Montants en bleu : part de ${esc(USERS[who])}. Les couleurs restent calculées sur le budget commun.</p>`;
+
+  for (const b of blocks) {
+    const open = b.col === "red" || b.col === "orange";
+    html += `<details class="cat ${b.col}" ${open ? "open" : ""}>
+      <summary>
+        <div class="line-head"><span class="name">${esc(b.c.name)}</span><span class="amounts">${money(b.spent)} / ${money(b.avail)}</span></div>
+        ${barHtml(b.avail, b.spent, b.col)}
+        <div class="status ${b.col}">${statusLine(b.avail, b.spent, b.col)}${who && b.mine ? ` <span class="pill">${esc(USERS[who])} : ${money(b.mine)}</span>` : ""}</div>
+      </summary>
+      ${b.rows.length ? b.rows.map(({ s, x, col }) => `
+        <div class="sub">
+          <div class="line-head"><span class="name">${esc(s.name)}${s.archived ? ' <span class="pill">archivé</span>' : ""}</span><span class="amounts">${money(x.spent)} / ${money(x.available)}</span></div>
+          ${barHtml(x.available, x.spent, col)}
+          <div class="status ${col}">${statusLine(x.available, x.spent, col)}${who && x.byUser[who] ? ` <span class="pill">${esc(USERS[who])} : ${money(x.byUser[who])}</span>` : ""}</div>
+        </div>`).join("") : `<div class="sub small muted">Aucune sous-catégorie. Ajoutez-en dans l'onglet Budget.</div>`}
+    </details>`;
+  }
+  $("#tab-dash").innerHTML = html;
+}
+
+function seenKey() { return `bb_seen_${S.user.uid}_${NOW_MONTH}`; }
+function currentStatuses(st) {
+  const cur = {};
+  activeSubs().forEach((s) => { cur[s.id] = colorOf(st[s.id].available, st[s.id].spent); });
+  return cur;
+}
+function alertsHtml(st) {
+  if (S.month !== NOW_MONTH) return "";
+  const seen = lsGet(seenKey(), {});
+  const cur = currentStatuses(st);
+  const items = activeSubs().filter((s) => {
+    const c = cur[s.id];
+    return (c === "orange" || c === "red") && RANK[c] > RANK[seen[s.id] || "green"];
+  });
+  if (!items.length) return "";
+  return `<div class="banner alert">
+    <b>Depuis votre dernière visite</b>
+    <ul>${items.map((s) => {
+      const x = st[s.id], c = cur[s.id];
+      return `<li>${esc(subLabel(s.id))} : ${c === "red" ? "<b>dépassé</b>" : "proche du plafond"} (${money(x.spent)} / ${money(x.available)})</li>`;
+    }).join("")}</ul>
+    <button class="btn" data-act="ackAlerts">J'ai vu</button>
+  </div>`;
+}
+function backupReminderHtml() {
+  if (lsGet("bb_last_backup", "") === NOW_MONTH) return "";
+  return `<div class="banner info">
+    <b>Sauvegarde du mois</b><br>
+    <span class="small">Pensez à télécharger une sauvegarde de vos données (une fois par mois).</span>
+    <div style="margin-top:8px"><button class="btn" data-act="backup">Télécharger la sauvegarde</button></div>
+  </div>`;
+}
+
+/* ---------- Dépenses ---------- */
+function renderExpenses() {
+  const catOpts = `<option value="all">Toutes les catégories</option>` + activeCats().map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("");
+  const accOpts = `<option value="all">Tous les moyens de paiement</option>` +
+    S.accounts.map((a) => `<option value="${a.id}">${esc(a.name)}${a.archived ? " (archivé)" : ""}</option>`).join("") +
+    `<option value="${CASH}">Espèces</option>`;
+
+  let list = S.expenses.filter((e) => e.month === S.month);
+  if (S.who !== "all") list = list.filter((e) => e.uid === S.who);
+  if (S.expCat !== "all") list = list.filter((e) => subById(e.subId)?.categoryId === S.expCat);
+  if (S.expAcc !== "all") list = list.filter((e) => e.accountId === S.expAcc);
+  list.sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  const total = round2(list.reduce((t, e) => t + e.amount, 0));
+
+  $("#tab-exp").innerHTML = `
+    <div class="filters">
+      <select class="input" id="f-cat">${catOpts}</select>
+      <select class="input" id="f-acc">${accOpts}</select>
+    </div>
+    <div class="month-sum"><span>${list.length} dépense${list.length > 1 ? "s" : ""}</span><b>${money(total)}</b></div>
+    ${list.length ? `<div class="list">${list.map((e) => {
+      const d = new Date(e.date + "T12:00:00");
+      return `<div class="exp" data-act="editExpense" data-id="${e.id}">
+        <div class="date"><b>${d.getDate()}</b>${d.toLocaleDateString("fr-FR", { month: "short" })}</div>
+        <div class="info">
+          <div class="t">${esc(e.label || subById(e.subId)?.name || "Dépense")}</div>
+          <div class="d">${esc(subLabel(e.subId))} · ${esc(accountName(e.accountId))} · ${esc(USERS[e.uid] || "?")}</div>
+        </div>
+        <div class="amt">${money(e.amount)}</div>
+      </div>`;
+    }).join("")}</div>` : `<div class="card empty">Aucune dépense pour ce mois${S.who !== "all" || S.expCat !== "all" || S.expAcc !== "all" ? " avec ces filtres" : ""}.</div>`}
+  `;
+  $("#f-cat").value = S.expCat;
+  $("#f-acc").value = S.expAcc;
+}
+
+/* ---------- Budget ---------- */
+function renderBudget() {
+  renderBudget.pending = false;
+  const st = stats(S.month);
+  const prevM = addMonths(S.month, -1);
+  let html = `<div class="actions">
+      <button class="btn secondary" data-act="copyPrev">Copier ${esc(monthLabel(prevM).split(" ")[0].toLowerCase())}</button>
+      <button class="btn secondary" data-act="openTransfer">Transférer</button>
+    </div>
+    <p class="small muted" style="margin-top:-6px">Montants prévus pour <b>${esc(monthLabel(S.month))}</b>. Cochez « Reporter le reste » pour qu'un reste ou un dépassement s'ajoute au mois suivant.</p>`;
+
+  if (!S.cats.length) {
+    html += `<div class="card empty"><button class="btn" data-act="seed">Créer mes 12 catégories</button></div>`;
+  }
+
+  activeCats().forEach((c, ci) => {
+    const subs = subsOf(c.id);
+    const sum = round2(subs.reduce((t, s) => t + (st[s.id]?.planned || 0), 0));
+    html += `<div class="bcat">
+      <div class="bcat-head">
+        <span class="name">${esc(c.name)}</span>
+        <span class="sum">${money(sum)}</span>
+        <button class="icon-btn" title="Monter" data-act="moveCat" data-id="${c.id}" data-dir="-1" ${ci === 0 ? "disabled" : ""}>↑</button>
+        <button class="icon-btn" title="Descendre" data-act="moveCat" data-id="${c.id}" data-dir="1" ${ci === S.cats.length - 1 ? "disabled" : ""}>↓</button>
+        <button class="icon-btn" title="Renommer" data-act="renameCat" data-id="${c.id}">✎</button>
+        <button class="icon-btn" title="Supprimer" data-act="deleteCat" data-id="${c.id}">🗑</button>
+      </div>
+      ${subs.map((s, si) => {
+        const x = st[s.id];
+        const extras = [];
+        if (x.carry) extras.push(`report ${x.carry > 0 ? "+" : ""}${money(x.carry)}`);
+        if (x.tin) extras.push(`transferts reçus +${money(x.tin)}`);
+        if (x.tout) extras.push(`transferts envoyés −${money(x.tout)}`);
+        const val = x.planned ? String(x.planned).replace(".", ",") : "";
+        return `<div class="bsub">
+          <span class="name">${esc(s.name)}</span>
+          <span class="money-in"><input type="text" inputmode="decimal" placeholder="0" value="${val}" data-budget="${s.id}" aria-label="Budget ${esc(s.name)}"></span>
+          ${extras.length ? `<div class="detail">Disponible ${money(x.available)} (${extras.join(", ")})</div>` : ""}
+          <div class="opts">
+            <label><input type="checkbox" data-carry="${s.id}" ${s.carryOver ? "checked" : ""}> Reporter le reste</label>
+            <button class="icon-btn" title="Monter" data-act="moveSub" data-id="${s.id}" data-dir="-1" ${si === 0 ? "disabled" : ""}>↑</button>
+            <button class="icon-btn" title="Descendre" data-act="moveSub" data-id="${s.id}" data-dir="1" ${si === subs.length - 1 ? "disabled" : ""}>↓</button>
+            <button class="icon-btn" title="Renommer" data-act="renameSub" data-id="${s.id}">✎</button>
+            <button class="icon-btn" title="Supprimer" data-act="deleteSub" data-id="${s.id}">🗑</button>
+          </div>
+        </div>`;
+      }).join("")}
+      <button class="add-sub" data-act="addSub" data-id="${c.id}">＋ Ajouter une sous-catégorie</button>
+    </div>`;
+  });
+
+  html += `<button class="btn secondary block" data-act="addCat" style="margin-bottom:18px">＋ Ajouter une catégorie</button>`;
+
+  const trs = S.transfers.filter((t) => t.month === S.month).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  html += `<h2>Transferts de ${esc(monthLabel(S.month).toLowerCase())}</h2>`;
+  html += trs.length ? `<div class="list">${trs.map((t) => `
+      <div class="tr">
+        <div class="info"><b>${money(t.amount)}</b> de ${esc(subLabel(t.fromSub))} vers ${esc(subLabel(t.toSub))}
+          <div class="small muted">${esc(t.date || "")} · ${esc(USERS[t.uid] || "?")}</div></div>
+        <button class="icon-btn" title="Annuler ce transfert" data-act="deleteTransfer" data-id="${t.id}">🗑</button>
+      </div>`).join("")}</div>`
+    : `<p class="small muted">Aucun transfert ce mois-ci.</p>`;
+
+  $("#tab-budget").innerHTML = html;
+}
+
+/* ---------- Réglages ---------- */
+function renderSettings() {
+  const accs = S.accounts.filter((a) => !a.archived);
+  $("#tab-settings").innerHTML = `
+    <h2>Comptes et cartes</h2>
+    <div class="list">
+      ${accs.map((a) => `<div class="acc"><span class="name">${esc(a.name)}</span>
+        <button class="icon-btn" title="Renommer" data-act="renameAcc" data-id="${a.id}">✎</button>
+        <button class="icon-btn" title="Supprimer" data-act="deleteAcc" data-id="${a.id}">🗑</button></div>`).join("")}
+      <div class="acc"><span class="name">Espèces</span><span class="small muted" style="padding-right:8px">fixe</span></div>
+    </div>
+    <button class="btn secondary block" data-act="addAcc">＋ Ajouter un compte ou une carte</button>
+
+    <h2>Sauvegarde</h2>
+    <div class="card">
+      <p class="small" style="margin-top:0">Télécharge toutes vos données dans un fichier. À faire au moins une fois par mois, et à conserver en lieu sûr.</p>
+      <p class="small muted">Dernière sauvegarde depuis cet appareil : ${lsGet("bb_last_backup", "") ? esc(monthLabel(lsGet("bb_last_backup", ""))) : "aucune"}</p>
+      <button class="btn block" data-act="backup">Télécharger la sauvegarde</button>
+    </div>
+
+    <h2>Compte</h2>
+    <div class="card">
+      <p style="margin-top:0">Connecté en tant que <b>${esc(USERS[S.user.uid])}</b><br><span class="small muted">${esc(S.user.email || "")}</span></p>
+      <button class="btn danger block" data-act="logout">Se déconnecter</button>
+    </div>
+  `;
+}
+
+/* =========================================================
+   Fenêtre dépense
+   ========================================================= */
+function fillSubSelect(sel, selected) {
+  sel.innerHTML = activeCats().map((c) => {
+    const subs = subsOf(c.id);
+    if (!subs.length) return "";
+    return `<optgroup label="${esc(c.name)}">${subs.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join("")}</optgroup>`;
+  }).join("");
+  if (selected && sel.querySelector(`option[value="${CSS.escape(selected)}"]`)) sel.value = selected;
+}
+function openExpense(exp) {
+  if (!activeSubs().length) { alert("Créez d'abord au moins une sous-catégorie dans l'onglet Budget (bouton « ＋ Ajouter une sous-catégorie »)."); S.tab = "budget"; render(); return; }
+  S.editingExpense = exp || null;
+  $("#exp-title").textContent = exp ? "Modifier la dépense" : "Nouvelle dépense";
+  $("#exp-error").textContent = "";
+  fillSubSelect($("#exp-sub"), exp ? exp.subId : lsGet("bb_last_sub", ""));
+  const accSel = $("#exp-account");
+  const accs = S.accounts.filter((a) => !a.archived || (exp && exp.accountId === a.id));
+  accSel.innerHTML = accs.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("") + `<option value="${CASH}">Espèces</option>`;
+  const wantAcc = exp ? exp.accountId : lsGet("bb_last_acc_" + S.user.uid, "");
+  if (wantAcc && accSel.querySelector(`option[value="${CSS.escape(wantAcc)}"]`)) accSel.value = wantAcc;
+  $("#exp-amount").value = exp ? String(exp.amount).replace(".", ",") : "";
+  // Par défaut : aujourd'hui, ou le 1er du mois affiché s'il ne s'agit pas du mois en cours
+  $("#exp-date").value = exp ? exp.date : (S.month === NOW_MONTH ? todayStr() : S.month + "-01");
+  $("#exp-label").value = exp ? (exp.label || "") : "";
+  $("#exp-who").textContent = exp ? `Saisie par ${USERS[exp.uid] || "?"}` : `Saisie par ${USERS[S.user.uid]}`;
+  $("#exp-delete").classList.toggle("hidden", !exp);
+  $("#dlg-expense").showModal();
+  setTimeout(() => $("#exp-amount").focus(), 50);
+}
+$("#form-expense").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const amount = parseAmount($("#exp-amount").value);
+  const subId = $("#exp-sub").value, accountId = $("#exp-account").value, date = $("#exp-date").value;
+  if (!(amount > 0)) { $("#exp-error").textContent = "Saisissez un montant supérieur à 0."; return; }
+  if (!subId || !accountId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { $("#exp-error").textContent = "Complétez tous les champs obligatoires."; return; }
+  if (date.slice(0, 7) < START) { $("#exp-error").textContent = "Cette date est trop ancienne (plus de 12 mois)."; return; }
+  const data = { amount, subId, accountId, date, month: date.slice(0, 7), label: $("#exp-label").value.trim(), updatedAt: serverTimestamp() };
+  const btn = $("#exp-save"); btn.disabled = true;
+  try {
+    if (S.editingExpense) {
+      await updateDoc(doc(db, "expenses", S.editingExpense.id), data);
+    } else {
+      await addDoc(collection(db, "expenses"), { ...data, uid: S.user.uid, createdAt: serverTimestamp() });
+    }
+    lsSet("bb_last_sub", subId);
+    lsSet("bb_last_acc_" + S.user.uid, accountId);
+    $("#dlg-expense").close();
+    toast(S.editingExpense ? "Dépense modifiée" : "Dépense enregistrée");
+    if (data.month !== S.month && !S.editingExpense) { S.month = data.month; render(); }
+  } catch (err) { fail(err); } finally { btn.disabled = false; }
+});
+
+/* =========================================================
+   Fenêtre transfert
+   ========================================================= */
+$("#form-transfer").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fromSub = $("#tr-from").value, toSub = $("#tr-to").value, amount = parseAmount($("#tr-amount").value);
+  if (fromSub === toSub) { $("#tr-error").textContent = "Choisissez deux postes différents."; return; }
+  if (!(amount > 0)) { $("#tr-error").textContent = "Saisissez un montant supérieur à 0."; return; }
+  try {
+    await addDoc(collection(db, "transfers"), { month: S.month, fromSub, toSub, amount, uid: S.user.uid, date: todayStr(), createdAt: serverTimestamp() });
+    $("#dlg-transfer").close();
+    toast("Transfert effectué");
+  } catch (err) { fail(err); }
+});
+
+/* =========================================================
+   Actions
+   ========================================================= */
+async function isUsed(field, id) {
+  const snap = await getDocs(query(collection(db, "expenses"), where(field, "==", id), limit(1)));
+  return !snap.empty;
+}
+async function swapOrder(list, id, dir, coll) {
+  const i = list.findIndex((x) => x.id === id), j = i + Number(dir);
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const b = writeBatch(db);
+  // réattribue un ordre propre à toute la liste, puis échange les deux éléments
+  const ordered = [...list];
+  [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
+  ordered.forEach((x, k) => b.update(doc(db, coll, x.id), { order: k }));
+  await b.commit();
+}
+const ask = (msg, def = "") => { const v = prompt(msg, def); return v === null ? null : v.trim(); };
+
+const actions = {
+  monthPrev() { if (S.month > START) { S.month = addMonths(S.month, -1); render(); } },
+  monthNext() { if (S.month < MAX_MONTH) { S.month = addMonths(S.month, 1); render(); } },
+  newExpense() { openExpense(null); },
+  editExpense(id) { const e = S.expenses.find((x) => x.id === id); if (e) openExpense(e); },
+  async deleteExpense() {
+    const e = S.editingExpense; if (!e) return;
+    if (!confirm(`Supprimer cette dépense de ${money(e.amount)} ?`)) return;
+    try { await deleteDoc(doc(db, "expenses", e.id)); $("#dlg-expense").close(); toast("Dépense supprimée"); } catch (err) { fail(err); }
+  },
+  closeDialog(id) { $("#" + id).close(); },
+  ackAlerts() { lsSet(seenKey(), currentStatuses(stats(NOW_MONTH))); render(); },
+
+  async seed() {
+    if (S.cats.length) return;
+    const b = writeBatch(db);
+    DEFAULT_CATS.forEach((name, i) => b.set(doc(collection(db, "categories")), { name, order: i }));
+    try { await b.commit(); toast("Catégories créées"); S.tab = "budget"; render(); } catch (err) { fail(err); }
+  },
+  async addCat() {
+    const name = ask("Nom de la nouvelle catégorie :"); if (!name) return;
+    try { await addDoc(collection(db, "categories"), { name, order: Date.now() }); } catch (err) { fail(err); }
+  },
+  async renameCat(id) {
+    const c = catById(id); const name = ask("Nouveau nom :", c?.name); if (!name) return;
+    try { await updateDoc(doc(db, "categories", id), { name }); } catch (err) { fail(err); }
+  },
+  async deleteCat(id) {
+    const c = catById(id);
+    if (subsOf(id).length) { alert(`Supprimez d'abord les sous-catégories de « ${c.name} ».`); return; }
+    if (!confirm(`Supprimer la catégorie « ${c.name} » ?`)) return;
+    try { await deleteDoc(doc(db, "categories", id)); } catch (err) { fail(err); }
+  },
+  moveCat(id, el) { swapOrder(S.cats, id, el.dataset.dir, "categories").catch(fail); },
+
+  async addSub(catId) {
+    const c = catById(catId);
+    const name = ask(`Nouvelle sous-catégorie dans « ${c?.name} » :`); if (!name) return;
+    try { await addDoc(collection(db, "subcategories"), { name, categoryId: catId, order: Date.now(), carryOver: false, archived: false }); }
+    catch (err) { fail(err); }
+  },
+  async renameSub(id) {
+    const s = subById(id); const name = ask("Nouveau nom :", s?.name); if (!name) return;
+    try { await updateDoc(doc(db, "subcategories", id), { name }); } catch (err) { fail(err); }
+  },
+  async deleteSub(id) {
+    const s = subById(id);
+    try {
+      if (await isUsed("subId", id)) {
+        if (!confirm(`« ${s.name} » contient des dépenses.\nElle sera archivée : masquée du budget et de la saisie, mais son historique est conservé.\n\nContinuer ?`)) return;
+        await updateDoc(doc(db, "subcategories", id), { archived: true });
+        toast("Sous-catégorie archivée");
+      } else {
+        if (!confirm(`Supprimer la sous-catégorie « ${s.name} » ?`)) return;
+        await deleteDoc(doc(db, "subcategories", id));
+      }
+    } catch (err) { fail(err); }
+  },
+  moveSub(id, el) { const s = subById(id); swapOrder(subsOf(s.categoryId), id, el.dataset.dir, "subcategories").catch(fail); },
+
+  async copyPrev() {
+    const prev = addMonths(S.month, -1);
+    const subs = activeSubs().filter((s) => S.budgets[prev + "_" + s.id] !== undefined && S.budgets[S.month + "_" + s.id] === undefined);
+    if (!subs.length) { alert(`Rien à copier : aucun montant en ${monthLabel(prev).toLowerCase()}, ou tous les postes de ${monthLabel(S.month).toLowerCase()} sont déjà remplis.`); return; }
+    if (!confirm(`Copier les montants de ${monthLabel(prev).toLowerCase()} sur ${monthLabel(S.month).toLowerCase()} ?\n(${subs.length} poste(s) vide(s) seront remplis ; les montants déjà saisis ne changent pas.)`)) return;
+    const b = writeBatch(db);
+    subs.forEach((s) => b.set(doc(db, "budgets", `${S.month}_${s.id}`), { month: S.month, subId: s.id, amount: S.budgets[prev + "_" + s.id] }));
+    try { await b.commit(); toast("Budget copié"); } catch (err) { fail(err); }
+  },
+  openTransfer() {
+    if (activeSubs().length < 2) { alert("Il faut au moins deux sous-catégories pour faire un transfert."); return; }
+    fillSubSelect($("#tr-from")); fillSubSelect($("#tr-to"));
+    $("#tr-amount").value = ""; $("#tr-error").textContent = "";
+    $("#tr-month").textContent = `Pour ${monthLabel(S.month).toLowerCase()}`;
+    $("#dlg-transfer").showModal();
+  },
+  async deleteTransfer(id) {
+    const t = S.transfers.find((x) => x.id === id);
+    if (!confirm(`Annuler le transfert de ${money(t.amount)} ?`)) return;
+    try { await deleteDoc(doc(db, "transfers", id)); } catch (err) { fail(err); }
+  },
+
+  async addAcc() {
+    const name = ask("Nom du compte ou de la carte (ex. : Compte joint, Carte de Jean-Pierre) :\nNe saisissez jamais de numéro de carte ou d'IBAN."); if (!name) return;
+    try { await addDoc(collection(db, "accounts"), { name, order: Date.now(), archived: false }); } catch (err) { fail(err); }
+  },
+  async renameAcc(id) {
+    const a = S.accounts.find((x) => x.id === id); const name = ask("Nouveau nom :", a?.name); if (!name) return;
+    try { await updateDoc(doc(db, "accounts", id), { name }); } catch (err) { fail(err); }
+  },
+  async deleteAcc(id) {
+    const a = S.accounts.find((x) => x.id === id);
+    try {
+      if (await isUsed("accountId", id)) {
+        if (!confirm(`« ${a.name} » est utilisé par des dépenses.\nIl sera archivé : masqué de la saisie, historique conservé.\n\nContinuer ?`)) return;
+        await updateDoc(doc(db, "accounts", id), { archived: true });
+      } else {
+        if (!confirm(`Supprimer « ${a.name} » ?`)) return;
+        await deleteDoc(doc(db, "accounts", id));
+      }
+    } catch (err) { fail(err); }
+  },
+
+  async backup() {
+    toast("Préparation de la sauvegarde…");
+    try {
+      const out = { application: "Budget Boussole", exportedAt: new Date().toISOString(), exportedBy: USERS[S.user.uid] };
+      for (const c of ["categories", "subcategories", "accounts", "budgets", "expenses", "transfers"]) {
+        const snap = await getDocs(collection(db, c));
+        out[c] = snap.docs.map((d) => {
+          const v = { id: d.id, ...d.data() };
+          for (const k in v) if (v[k] && typeof v[k].toDate === "function") v[k] = v[k].toDate().toISOString();
+          return v;
+        });
+      }
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `budget-boussole-sauvegarde-${todayStr()}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      lsSet("bb_last_backup", NOW_MONTH);
+      toast("Sauvegarde téléchargée");
+      render();
+    } catch (err) { fail(err); }
+  },
+  logout() { if (confirm("Se déconnecter ?")) signOut(auth); }
+};
+
+document.addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
+  const b = e.target.closest("[data-act]");
+  if (!b || b.disabled) return;
+  if (b.tagName === "SUMMARY") return;
+  const fn = actions[b.dataset.act];
+  if (fn) { e.preventDefault(); fn(b.dataset.id, b); }
+});
+
+document.addEventListener("change", async (e) => {
+  const t = e.target;
+  if (t.id === "who") { S.who = t.value; render(); return; }
+  if (t.id === "f-cat") { S.expCat = t.value; render(); return; }
+  if (t.id === "f-acc") { S.expAcc = t.value; render(); return; }
+  if (t.dataset.budget) {
+    const raw = t.value.trim();
+    const amount = raw === "" ? 0 : parseAmount(raw);
+    if (!(amount >= 0)) { toast("Montant invalide"); t.value = ""; return; }
+    try { await setDoc(doc(db, "budgets", `${S.month}_${t.dataset.budget}`), { month: S.month, subId: t.dataset.budget, amount }); }
+    catch (err) { fail(err); }
+    return;
+  }
+  if (t.dataset.carry) {
+    try { await updateDoc(doc(db, "subcategories", t.dataset.carry), { carryOver: t.checked }); } catch (err) { fail(err); }
+  }
+});
+
+// Après une saisie de montant, on rafraîchit l'onglet Budget s'il avait été mis en attente
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches?.("input[data-budget]")) setTimeout(() => { if (renderBudget.pending && S.tab === "budget") render(); }, 0);
+});
+
+// Valider un montant avec la touche Entrée
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.matches?.("input[data-budget]")) e.target.blur();
+});
+
+/* =========================================================
+   Application installable (hors ligne pour l'interface)
+   ========================================================= */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+</script>
+</body>
+</html>
