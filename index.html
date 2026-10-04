@@ -151,6 +151,17 @@
   .list { background: var(--card); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
   .month-sum { display: flex; justify-content: space-between; padding: 0 4px 8px; color: var(--muted); font-size: .9rem; }
 
+  /* ---------- Par moyen de paiement ---------- */
+  details.pay-row { border-top: 1px solid var(--line); }
+  details.pay-row:first-child { border-top: 0; }
+  details.pay-row > summary { list-style: none; padding: 12px 14px; cursor: pointer; }
+  details.pay-row > summary::-webkit-details-marker { display: none; }
+  .bar i.pay { background: var(--primary); }
+  .pay-cat { display: flex; justify-content: space-between; gap: 8px; padding: 7px 14px 7px 22px; border-top: 1px solid var(--line); font-size: .9rem; }
+  .pay-cat span:last-child { white-space: nowrap; }
+  .up { color: var(--red); }
+  .down { color: var(--green); }
+
   /* ---------- Budget ---------- */
   .bcat { background: var(--card); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
   .bcat-head { display: flex; align-items: center; gap: 4px; padding: 10px 8px 10px 14px; background: var(--primary-soft); }
@@ -574,7 +585,52 @@ function renderDash() {
         </div>`).join("") : `<div class="sub small muted">Aucune sous-catégorie. Ajoutez-en dans l'onglet Budget.</div>`}
     </details>`;
   }
+  html += paymentHtml();
   $("#tab-dash").innerHTML = html;
+}
+
+/* ---------- Analyse par moyen de paiement ---------- */
+function paymentHtml() {
+  const prevM = addMonths(S.month, -1);
+  const prevName = monthLabel(prevM).split(" ")[0].toLowerCase();
+  const pick = (m) => S.expenses.filter((e) => e.month === m && (S.who === "all" || e.uid === S.who));
+  const agg = (list) => {
+    const r = {};
+    for (const e of list) {
+      const a = r[e.accountId] || (r[e.accountId] = { total: 0, n: 0, cats: {} });
+      a.total += e.amount; a.n++;
+      const cid = subById(e.subId)?.categoryId || "?";
+      a.cats[cid] = (a.cats[cid] || 0) + e.amount;
+    }
+    return r;
+  };
+  const cur = pick(S.month);
+  const title = `<h2>Par moyen de paiement${S.who !== "all" ? ` · ${esc(USERS[S.who])}` : ""}</h2>`;
+  if (!cur.length) return title + `<p class="small muted">Aucune dépense ce mois-ci.</p>`;
+  const A = agg(cur), P = agg(pick(prevM));
+  const total = round2(cur.reduce((t, e) => t + e.amount, 0));
+  const rows = Object.entries(A)
+    .map(([id, a]) => ({ id, n: a.n, cats: a.cats, total: round2(a.total), prev: round2(P[id]?.total || 0) }))
+    .sort((x, y) => y.total - x.total);
+
+  return title + `<div class="list">${rows.map((r) => {
+    const pct = total ? (r.total / total) * 100 : 0;
+    const diff = round2(r.total - r.prev);
+    const cmp = !r.prev ? `rien en ${prevName}`
+      : diff === 0 ? `identique à ${prevName}`
+      : `<span class="${diff > 0 ? "up" : "down"}">${diff > 0 ? "+" : "−"}${money(Math.abs(diff))}</span> par rapport à ${prevName}`;
+    const cats = Object.entries(r.cats).sort((a, b) => b[1] - a[1])
+      .map(([cid, v]) => `<div class="pay-cat"><span>${esc(catById(cid)?.name || "Autre")}</span><span>${money(v)}</span></div>`).join("");
+    return `<details class="pay-row">
+      <summary>
+        <div class="line-head"><span class="name">${esc(accountName(r.id))}</span><span class="amounts"><b>${money(r.total)}</b></span></div>
+        <div class="bar"><i class="pay" style="width:${pct.toFixed(1)}%"></i></div>
+        <div class="small muted">${Math.round(pct)} % des dépenses · ${r.n} dépense${r.n > 1 ? "s" : ""} · ${cmp}</div>
+      </summary>
+      ${cats}
+      <button class="add-sub" data-act="showAccount" data-id="${r.id}">Voir le détail des dépenses</button>
+    </details>`;
+  }).join("")}</div>`;
 }
 
 function seenKey() { return `bb_seen_${S.user.uid}_${NOW_MONTH}`; }
@@ -839,6 +895,7 @@ const actions = {
     try { await deleteDoc(doc(db, "expenses", e.id)); $("#dlg-expense").close(); toast("Dépense supprimée"); } catch (err) { fail(err); }
   },
   closeDialog(id) { $("#" + id).close(); },
+  showAccount(id) { S.expAcc = id; S.expCat = "all"; S.tab = "exp"; render(); window.scrollTo(0, 0); },
   ackAlerts() { lsSet(seenKey(), currentStatuses(stats(NOW_MONTH))); render(); },
 
   async seed() {
