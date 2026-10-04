@@ -236,7 +236,7 @@
   .duel th:first-child, .duel td:first-child { text-align: left; color: var(--muted); font-weight: 400; }
   .duel .win { color: var(--green); font-weight: 600; }
   .fun-note { padding: 8px 14px 12px; margin: 0; }
-  /* Écran d'accueil avec le GIF (à chaque ouverture, le temps d'une lecture complète) */
+  /* Écran d'accueil avec le GIF (à chaque ouverture, le temps d'une lecture complète (5,8 s)) */
   #splash { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; place-items: center; padding: 24px; transition: opacity .35s; cursor: pointer; }
   #splash.out { opacity: 0; pointer-events: none; }
   #splash img { max-width: min(80vw, 420px); max-height: 60vh; border-radius: 20px; opacity: 0; transition: opacity .25s; }
@@ -259,10 +259,10 @@
     splash.classList.add("out");
     setTimeout(function () { splash.remove(); }, 400);
   }
-  function shown() { img.classList.add("ok"); setTimeout(hide, 2900); }   // durée de l'animation (2,9 s), joue une seule fois
+  var safety = setTimeout(hide, 4000);                                     // GIF pas chargé en 4 s (connexion lente) : on passe
+  function shown() { clearTimeout(safety); img.classList.add("ok"); setTimeout(hide, 5800); }   // durée de l'animation (5,8 s), jouée une fois
   if (img.complete && img.naturalWidth) shown();
   else { img.addEventListener("load", shown); img.addEventListener("error", hide); }
-  setTimeout(hide, 5000);                                                  // sécurité : jamais plus de 5 s (connexion lente)
   splash.addEventListener("click", hide);                                  // un toucher pour passer
 })();
 </script>
