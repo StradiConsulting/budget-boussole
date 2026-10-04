@@ -148,6 +148,15 @@
   .exp .info .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .exp .info .d { font-size: .8rem; color: var(--muted); }
   .exp .amt { font-weight: 600; white-space: nowrap; }
+  .filters .wide { grid-column: 1 / -1; }
+  /* Case « rapprochée avec la banque », tout à droite de chaque ligne */
+  .exp .rec { width: 40px; height: 40px; margin: -8px -8px -8px 0; display: grid; place-items: center; flex: none; cursor: pointer; }
+  .exp .rec input { width: 22px; height: 22px; margin: 0; accent-color: var(--green); cursor: pointer; }
+  .exp .rec.none { cursor: default; }
+  .exp.done .amt { color: var(--muted); }
+  .rec-sum { display: flex; justify-content: space-between; gap: 8px; padding: 0 4px 10px; font-size: .9rem; }
+  .rec-sum.todo { color: var(--orange); }
+  .rec-sum.ok { color: var(--green); }
   .list { background: var(--card); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
   .month-sum { display: flex; justify-content: space-between; padding: 0 4px 8px; color: var(--muted); font-size: .9rem; }
 
@@ -386,7 +395,7 @@ const S = {
   cats: [], subs: [], accounts: [],
   budgets: {}, expenses: [], transfers: [],
   month: NOW_MONTH, who: "all", tab: "dash",
-  expCat: "all", expAcc: "all",
+  expCat: "all", expAcc: "all", expRec: "all",
   ready: new Set(),
   editingExpense: null
 };
@@ -401,6 +410,11 @@ const subById = (id) => S.subs.find((s) => s.id === id);
 const catById = (id) => S.cats.find((c) => c.id === id);
 const subLabel = (id) => { const s = subById(id); if (!s) return "Poste supprimé"; const c = catById(s.categoryId); return (c ? c.name + " › " : "") + s.name; };
 const accountName = (id) => id === CASH ? "Espèces" : (S.accounts.find((a) => a.id === id)?.name || "Compte supprimé");
+// Texte « Rapprochée le 12/10/2026 par Maryline »
+const recInfo = (e) => {
+  const at = e.reconciledAt?.toDate ? e.reconciledAt.toDate().toLocaleDateString("fr-FR") : "";
+  return `Rapprochée avec la banque${at ? " le " + at : ""}${e.reconciledBy ? " par " + (USERS[e.reconciledBy] || "?") : ""}`;
+};
 
 /* =========================================================
    Authentification
@@ -677,29 +691,49 @@ function renderExpenses() {
   if (S.who !== "all") list = list.filter((e) => e.uid === S.who);
   if (S.expCat !== "all") list = list.filter((e) => subById(e.subId)?.categoryId === S.expCat);
   if (S.expAcc !== "all") list = list.filter((e) => e.accountId === S.expAcc);
+  // Rapprochement bancaire : les espèces n'apparaissent sur aucun relevé, elles sont exclues de ce filtre
+  if (S.expRec === "done") list = list.filter((e) => e.accountId !== CASH && e.reconciled);
+  if (S.expRec === "todo") list = list.filter((e) => e.accountId !== CASH && !e.reconciled);
   list.sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   const total = round2(list.reduce((t, e) => t + e.amount, 0));
+  const todo = list.filter((e) => e.accountId !== CASH && !e.reconciled);
+  const todoTotal = round2(todo.reduce((t, e) => t + e.amount, 0));
+  const banked = list.some((e) => e.accountId !== CASH);
 
   $("#tab-exp").innerHTML = `
     <div class="filters">
       <select class="input" id="f-cat">${catOpts}</select>
       <select class="input" id="f-acc">${accOpts}</select>
+      <select class="input wide" id="f-rec" aria-label="Filtrer par rapprochement bancaire">
+        <option value="all">Rapprochement : toutes</option>
+        <option value="todo">Non rapprochées</option>
+        <option value="done">Rapprochées</option>
+      </select>
     </div>
     <div class="month-sum"><span>${list.length} dépense${list.length > 1 ? "s" : ""}</span><b>${money(total)}</b></div>
+    ${banked ? (todo.length
+      ? `<div class="rec-sum todo"><span>À rapprocher : ${todo.length} dépense${todo.length > 1 ? "s" : ""}</span><b>${money(todoTotal)}</b></div>`
+      : `<div class="rec-sum ok"><span>Tout est rapproché avec la banque</span><b>✓</b></div>`) : ""}
     ${list.length ? `<div class="list">${list.map((e) => {
       const d = new Date(e.date + "T12:00:00");
-      return `<div class="exp" data-act="editExpense" data-id="${e.id}">
+      const cash = e.accountId === CASH;
+      const rec = !cash && !!e.reconciled;
+      return `<div class="exp${rec ? " done" : ""}" data-act="editExpense" data-id="${e.id}">
         <div class="date"><b>${d.getDate()}</b>${d.toLocaleDateString("fr-FR", { month: "short" })}</div>
         <div class="info">
           <div class="t">${esc(e.label || subById(e.subId)?.name || "Dépense")}</div>
           <div class="d">${esc(subLabel(e.subId))} · ${esc(accountName(e.accountId))} · ${esc(USERS[e.uid] || "?")}</div>
         </div>
         <div class="amt">${money(e.amount)}</div>
+        ${cash
+          ? `<span class="rec none" title="Espèces : pas de rapprochement bancaire"></span>`
+          : `<label class="rec" title="${rec ? recInfo(e) : "Rapprochée avec la banque"}"><input type="checkbox" data-rec="${e.id}" ${rec ? "checked" : ""} aria-label="Rapprochée avec la banque"></label>`}
       </div>`;
-    }).join("")}</div>` : `<div class="card empty">Aucune dépense pour ce mois${S.who !== "all" || S.expCat !== "all" || S.expAcc !== "all" ? " avec ces filtres" : ""}.</div>`}
+    }).join("")}</div>` : `<div class="card empty">Aucune dépense pour ce mois${S.who !== "all" || S.expCat !== "all" || S.expAcc !== "all" || S.expRec !== "all" ? " avec ces filtres" : ""}.</div>`}
   `;
   $("#f-cat").value = S.expCat;
   $("#f-acc").value = S.expAcc;
+  $("#f-rec").value = S.expRec;
 }
 
 /* ---------- Budget ---------- */
@@ -822,7 +856,9 @@ function openExpense(exp) {
   // Par défaut : aujourd'hui, ou le 1er du mois affiché s'il ne s'agit pas du mois en cours
   $("#exp-date").value = exp ? exp.date : (S.month === NOW_MONTH ? todayStr() : S.month + "-01");
   $("#exp-label").value = exp ? (exp.label || "") : "";
-  $("#exp-who").textContent = exp ? `Saisie par ${USERS[exp.uid] || "?"}` : `Saisie par ${USERS[S.user.uid]}`;
+  $("#exp-who").textContent = exp
+    ? `Saisie par ${USERS[exp.uid] || "?"}` + (exp.accountId !== CASH ? ` · ${exp.reconciled ? recInfo(exp) : "Pas encore rapprochée avec la banque"}` : "")
+    : `Saisie par ${USERS[S.user.uid]}`;
   $("#exp-delete").classList.toggle("hidden", !exp);
   $("#dlg-expense").showModal();
   setTimeout(() => $("#exp-amount").focus(), 50);
@@ -835,6 +871,8 @@ $("#form-expense").addEventListener("submit", async (e) => {
   if (!subId || !accountId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { $("#exp-error").textContent = "Complétez tous les champs obligatoires."; return; }
   if (date.slice(0, 7) < START) { $("#exp-error").textContent = "Cette date est trop ancienne (plus de 12 mois)."; return; }
   const data = { amount, subId, accountId, date, month: date.slice(0, 7), label: $("#exp-label").value.trim(), updatedAt: serverTimestamp() };
+  // Une dépense passée en espèces ne peut pas rester « rapprochée avec la banque »
+  if (S.editingExpense?.reconciled && accountId === CASH) Object.assign(data, { reconciled: false, reconciledBy: null, reconciledAt: null });
   const btn = $("#exp-save"); btn.disabled = true;
   try {
     if (S.editingExpense) {
@@ -895,7 +933,7 @@ const actions = {
     try { await deleteDoc(doc(db, "expenses", e.id)); $("#dlg-expense").close(); toast("Dépense supprimée"); } catch (err) { fail(err); }
   },
   closeDialog(id) { $("#" + id).close(); },
-  showAccount(id) { S.expAcc = id; S.expCat = "all"; S.tab = "exp"; render(); window.scrollTo(0, 0); },
+  showAccount(id) { S.expAcc = id; S.expCat = "all"; S.expRec = "all"; S.tab = "exp"; render(); window.scrollTo(0, 0); },
   ackAlerts() { lsSet(seenKey(), currentStatuses(stats(NOW_MONTH))); render(); },
 
   async seed() {
@@ -1017,6 +1055,8 @@ const actions = {
 document.addEventListener("click", (e) => {
   const tab = e.target.closest("[data-tab]");
   if (tab) { S.tab = tab.dataset.tab; render(); window.scrollTo(0, 0); return; }
+  // La case de rapprochement se coche sans ouvrir la fiche de la dépense
+  if (e.target.closest(".exp .rec")) return;
   const b = e.target.closest("[data-act]");
   if (!b || b.disabled) return;
   if (b.tagName === "SUMMARY") return;
@@ -1029,6 +1069,17 @@ document.addEventListener("change", async (e) => {
   if (t.id === "who") { S.who = t.value; render(); return; }
   if (t.id === "f-cat") { S.expCat = t.value; render(); return; }
   if (t.id === "f-acc") { S.expAcc = t.value; render(); return; }
+  if (t.id === "f-rec") { S.expRec = t.value; render(); return; }
+  if (t.dataset.rec) {
+    const on = t.checked;
+    try {
+      await updateDoc(doc(db, "expenses", t.dataset.rec), on
+        ? { reconciled: true, reconciledBy: S.user.uid, reconciledAt: serverTimestamp() }
+        : { reconciled: false, reconciledBy: null, reconciledAt: null });
+      toast(on ? "Dépense rapprochée" : "Rapprochement annulé");
+    } catch (err) { t.checked = !on; fail(err); }
+    return;
+  }
   if (t.dataset.budget) {
     const raw = t.value.trim();
     const amount = raw === "" ? 0 : parseAmount(raw);
