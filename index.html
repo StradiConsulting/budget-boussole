@@ -212,9 +212,60 @@
   #toast { position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; z-index: 50; font-size: .9rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
   #toast.show { opacity: 1; }
   #loading { text-align: center; padding: 60px 16px; color: var(--muted); }
+
+  /* ---------- Touches de fun (discrètes) ---------- */
+  .phrase { display: flex; align-items: flex-start; gap: 10px; background: var(--card); border-radius: var(--radius); padding: 10px 6px 10px 14px; margin-bottom: 12px; font-size: .92rem; font-style: italic; color: var(--primary); }
+  .phrase .ico { font-style: normal; font-size: 1.15rem; line-height: 1.2; }
+  .phrase .txt { flex: 1; padding-top: 1px; }
+  .banner.trophy { background: #fff6dc; border-left: 4px solid #d4a017; }
+  details.fun { background: var(--card); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+  details.fun > summary { list-style: none; padding: 12px 14px; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  details.fun > summary::-webkit-details-marker { display: none; }
+  details.fun > summary .name { font-weight: 600; }
+  details.fun > summary .small { white-space: nowrap; }
+  .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; padding: 0 12px 12px; }
+  .badge { border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+  .badge .em { font-size: 1.7rem; line-height: 1.2; display: block; }
+  .badge b { display: block; font-size: .88rem; margin: 2px 0; }
+  .badge small { display: block; color: var(--muted); font-size: .75rem; line-height: 1.25; }
+  .badge .n { display: inline-block; margin-top: 4px; font-size: .72rem; padding: 1px 7px; border-radius: 10px; background: var(--green-soft); color: var(--green); font-weight: 600; }
+  .badge.locked { opacity: .45; }
+  .badge.locked .em { filter: grayscale(1); }
+  .duel { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .duel th, .duel td { padding: 8px 10px; border-top: 1px solid var(--line); text-align: center; }
+  .duel th:first-child, .duel td:first-child { text-align: left; color: var(--muted); font-weight: 400; }
+  .duel .win { color: var(--green); font-weight: 600; }
+  .fun-note { padding: 8px 14px 12px; margin: 0; }
+  /* Écran d'accueil avec le GIF (à chaque ouverture, le temps d'une lecture complète) */
+  #splash { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: grid; place-items: center; padding: 24px; transition: opacity .35s; cursor: pointer; }
+  #splash.out { opacity: 0; pointer-events: none; }
+  #splash img { max-width: min(80vw, 420px); max-height: 60vh; border-radius: 20px; opacity: 0; transition: opacity .25s; }
+  #splash img.ok { opacity: 1; }
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
 </style>
 </head>
 <body>
+
+<!-- ===================== Écran d'accueil (GIF) ===================== -->
+<!-- Pour changer d'animation : remplacer le fichier accueil.gif (même nom). S'il est absent, l'écran ne s'affiche pas. -->
+<div id="splash" role="presentation" aria-hidden="true">
+  <img id="splash-img" src="accueil.gif" alt="">
+</div>
+<script>
+(function () {
+  var splash = document.getElementById("splash"), img = document.getElementById("splash-img"), done = false;
+  function hide() {
+    if (done) return; done = true;
+    splash.classList.add("out");
+    setTimeout(function () { splash.remove(); }, 400);
+  }
+  function shown() { img.classList.add("ok"); setTimeout(hide, 2900); }   // durée de l'animation (2,9 s), joue une seule fois
+  if (img.complete && img.naturalWidth) shown();
+  else { img.addEventListener("load", shown); img.addEventListener("error", hide); }
+  setTimeout(hide, 5000);                                                  // sécurité : jamais plus de 5 s (connexion lente)
+  splash.addEventListener("click", hide);                                  // un toucher pour passer
+})();
+</script>
 
 <!-- ===================== Connexion ===================== -->
 <div id="login" class="hidden">
@@ -377,7 +428,7 @@ function monthLabel(m) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 function parseAmount(v) {
-  const n = parseFloat(String(v).replace(/[\s €]/g, "").replace(",", "."));
+  const n = parseFloat(String(v).replace(/[\s €]/g, "").replace(",", "."));
   return Number.isFinite(n) ? round2(n) : NaN;
 }
 function lsGet(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }
@@ -401,6 +452,34 @@ const RANK = { none: -1, green: 0, orange: 1, red: 2 };
 const STATUS_TEXT = { green: "Il reste", orange: "Proche du plafond", red: "Dépassé", none: "Non budgété" };
 
 /* =========================================================
+   Phrases du jour : PROVISOIRES, à réécrire ensemble.
+   Une phrase est tirée chaque jour selon l'état du budget du mois en cours :
+   - debut  : du 1er au 3 du mois (si rien n'est orange ou rouge)
+   - vert   : aucun poste orange ni rouge
+   - orange : au moins un poste proche du plafond (aucun dépassé)
+   - rouge  : au moins un poste dépassé
+   Pour ajouter une phrase : une ligne entre guillemets, suivie d'une virgule.
+   ========================================================= */
+const PHRASES = {
+  debut: [
+    "Nouveau mois, page blanche : la boussole est remise à zéro.",
+    "Le mois commence, c'est le moment idéal pour garder le cap."
+  ],
+  vert: [
+    "Tout est au vert. La boussole indique le beau temps.",
+    "Pas un nuage à l'horizon du budget. On continue comme ça !"
+  ],
+  orange: [
+    "Quelques postes s'approchent du plafond : on lève un peu le pied.",
+    "Petite brise orange sur le budget, rien de grave si on garde le cap."
+  ],
+  rouge: [
+    "Un poste a dépassé son plafond. Un petit transfert peut tout remettre d'aplomb.",
+    "La boussole s'agite un peu : on regarde ensemble où recadrer ?"
+  ]
+};
+
+/* =========================================================
    État
    ========================================================= */
 const S = {
@@ -410,6 +489,7 @@ const S = {
   month: NOW_MONTH, who: "all", tab: "dash",
   expCat: "all", expAcc: "all", expRec: "all",
   ready: new Set(),
+  fresh: new Set(),   // collections confirmées par le serveur (pas seulement le cache local)
   editingExpense: null
 };
 let unsubs = [];
@@ -469,7 +549,7 @@ $("#login-form").addEventListener("submit", async (e) => {
 
 onAuthStateChanged(auth, (user) => {
   unsubs.forEach((u) => u()); unsubs = [];
-  S.ready.clear();
+  S.ready.clear(); S.fresh.clear();
   if (!user) {
     S.user = null;
     showPassword(false);
@@ -494,7 +574,7 @@ onAuthStateChanged(auth, (user) => {
    Données en temps réel
    ========================================================= */
 function subscribe() {
-  const listen = (q, key, fn) => unsubs.push(onSnapshot(q, (snap) => { fn(snap); S.ready.add(key); render(); }, fail));
+  const listen = (q, key, fn) => unsubs.push(onSnapshot(q, { includeMetadataChanges: true }, (snap) => { fn(snap); S.ready.add(key); if (snap.metadata.fromCache) S.fresh.delete(key); else S.fresh.add(key); render(); }, fail));
   const docs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   listen(collection(db, "categories"), "cats", (s) => { S.cats = docs(s).sort(byOrder); });
   listen(collection(db, "subcategories"), "subs", (s) => { S.subs = docs(s).sort(byOrder); });
@@ -580,7 +660,7 @@ function render() {
 /* ---------- Tableau de bord ---------- */
 function renderDash() {
   const st = stats(S.month);
-  let html = alertsHtml(st) + backupReminderHtml();
+  let html = trophyBannerHtml() + alertsHtml(st) + phraseHtml(st) + backupReminderHtml();
 
   if (!S.cats.length) {
     html += `<div class="card empty">
@@ -633,7 +713,7 @@ function renderDash() {
         </div>`).join("") : `<div class="sub small muted">Aucune sous-catégorie. Ajoutez-en dans l'onglet Budget.</div>`}
     </details>`;
   }
-  html += paymentHtml();
+  html += paymentHtml() + duelHtml() + trophiesHtml();
   $("#tab-dash").innerHTML = html;
 }
 
@@ -712,6 +792,161 @@ function backupReminderHtml() {
     <span class="small">Pensez à télécharger une sauvegarde de vos données (une fois par mois).</span>
     <div style="margin-top:8px"><button class="btn" data-act="backup">Télécharger la sauvegarde</button></div>
   </div>`;
+}
+
+/* =========================================================
+   Fun : phrase du jour, trophées, duel, confettis
+   Tout est calculé à partir des données existantes : aucune nouvelle
+   collection Firestore, donc aucune règle de sécurité à modifier.
+   ========================================================= */
+const storageOk = (() => { try { localStorage.setItem("bb_t", "1"); localStorage.removeItem("bb_t"); return true; } catch { return false; } })();
+
+// Confettis légers (désactivés si le téléphone demande de réduire les animations)
+function confetti() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  if (document.getElementById("confetti")) return;
+  const cv = document.createElement("canvas"); cv.id = "confetti";
+  document.body.appendChild(cv);
+  const dpr = window.devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+  const colors = ["#1f4e5f", "#2e7d4f", "#c9701a", "#d4a017", "#5aa3b8"];
+  const parts = Array.from({ length: 70 }, () => ({
+    x: W / 2 + (Math.random() - .5) * W * .4, y: H * .35,
+    vx: (Math.random() - .5) * 9, vy: -Math.random() * 9 - 3,
+    w: 6 + Math.random() * 5, h: 3 + Math.random() * 4,
+    r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: colors[Math.floor(Math.random() * colors.length)]
+  }));
+  const t0 = performance.now(), DUR = 1800;
+  (function frame(t) {
+    const k = (t - t0) / DUR;
+    ctx.clearRect(0, 0, W, H);
+    ctx.globalAlpha = Math.max(0, 1 - Math.max(0, k - .6) / .4);
+    for (const p of parts) {
+      p.vy += .28; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+    if (k < 1) requestAnimationFrame(frame); else cv.remove();
+  })(t0);
+}
+
+/* ---------- Phrase du jour ---------- */
+function phraseHtml(st) {
+  if (S.month !== NOW_MONTH || !S.cats.length) return "";
+  const today = todayStr();
+  if (lsGet("bb_phrase_hidden", "") === today) return "";
+  const cols = Object.values(currentStatuses(st));
+  const mood = cols.includes("red") ? "rouge" : cols.includes("orange") ? "orange" : Number(today.slice(8, 10)) <= 3 ? "debut" : "vert";
+  const list = PHRASES[mood] || [];
+  if (!list.length) return "";
+  // même phrase toute la journée (pas de changement à chaque rafraîchissement)
+  const seed = [...today].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const ico = { debut: "🧭", vert: "☀️", orange: "🌤️", rouge: "🌧️" }[mood];
+  return `<div class="phrase"><span class="ico">${ico}</span><span class="txt">${esc(list[seed % list.length])}</span>
+    <button class="icon-btn" data-act="hidePhrase" title="Masquer pour aujourd'hui" aria-label="Masquer la phrase du jour">✕</button></div>`;
+}
+
+/* ---------- Trophées ---------- */
+// Bilan d'un mois : couleurs des postes, totaux, rapprochement, présence des deux personnes
+function monthReport(m) {
+  const st = stats(m);
+  const cols = [];
+  let avail = 0, spent = 0;
+  for (const s of S.subs) {
+    const x = st[s.id];
+    if (!x || !catById(s.categoryId) || (x.available === 0 && x.spent === 0)) continue;
+    cols.push(colorOf(x.available, x.spent));
+    avail += x.available; spent += x.spent;
+  }
+  avail = round2(avail); spent = round2(spent);
+  const exps = S.expenses.filter((e) => e.month === m);
+  const banked = exps.filter((e) => e.accountId !== CASH);
+  const budgeted = cols.length > 0 && avail > 0;
+  return {
+    budgeted,
+    noRed: budgeted && !cols.includes("red"),
+    allGreen: budgeted && cols.every((c) => c === "green"),
+    under: budgeted && spent <= avail,
+    perfectRec: banked.length > 0 && banked.every((e) => e.reconciled),
+    duo: Object.keys(USERS).every((u) => exps.some((e) => e.uid === u))
+  };
+}
+function computeBadges() {
+  // Mois terminés uniquement. Le plus ancien mois chargé est exclu : son report du mois d'avant est inconnu.
+  const R = [];
+  for (let m = addMonths(START, 1); m < NOW_MONTH; m = addMonths(m, 1)) R.push(monthReport(m));
+  const count = (f) => R.filter(f).length;
+  let streak = 0, best = 0;
+  for (const r of R) { streak = r.noRed ? streak + 1 : 0; best = Math.max(best, streak); }
+  const duo = count((r) => r.duo) + (monthReport(NOW_MONTH).duo ? 1 : 0);
+  return [
+    { id: "premier", em: "👣", name: "Premier pas", how: "Enregistrer une première dépense", n: S.expenses.length ? 1 : 0, once: true },
+    { id: "duo", em: "🤝", name: "En duo", how: "Un mois où chacun saisit au moins une dépense", n: duo },
+    { id: "sous", em: "🐷", name: "Sous le budget", how: "Finir un mois en dépensant moins que le budget total", n: count((r) => r.under) },
+    { id: "zerorouge", em: "🛡️", name: "Zéro rouge", how: "Finir un mois sans aucun poste dépassé", n: count((r) => r.noRed) },
+    { id: "vert", em: "🌿", name: "Mois 100 % vert", how: "Finir un mois avec tous les postes au vert", n: count((r) => r.allGreen) },
+    { id: "pointage", em: "✅", name: "Pointage parfait", how: "Finir un mois avec toutes les dépenses bancaires rapprochées", n: count((r) => r.perfectRec) },
+    { id: "serie", em: "🔥", name: "Série de 3", how: "3 mois de suite sans poste dépassé", n: best >= 3 ? 1 : 0, once: true, extra: streak ? `Série en cours : ${streak} mois` : "" }
+  ];
+}
+function trophyKey() { return `bb_trophies_${S.user.uid}`; }
+let celebrated = "";
+// Bandeau « Nouveau trophée » : uniquement avec des données confirmées par le serveur
+function trophyBannerHtml() {
+  if (!storageOk || S.fresh.size < 6) return "";
+  const known = lsGet(trophyKey(), null);
+  const won = computeBadges().filter((b) => b.n > 0);
+  if (!Array.isArray(known)) { lsSet(trophyKey(), won.map((b) => b.id)); return ""; } // première visite : on mémorise sans fête
+  const fresh = won.filter((b) => !known.includes(b.id));
+  if (!fresh.length) return "";
+  const ids = fresh.map((b) => b.id).join(",");
+  if (celebrated !== ids) { celebrated = ids; setTimeout(confetti, 150); }
+  return `<div class="banner trophy">
+    <b>🏆 ${fresh.length > 1 ? "Nouveaux trophées" : "Nouveau trophée"} !</b>
+    <ul>${fresh.map((b) => `<li>${b.em} <b>${esc(b.name)}</b> : ${esc(b.how.charAt(0).toLowerCase() + b.how.slice(1))}</li>`).join("")}</ul>
+    <button class="btn" data-act="ackTrophies">Super !</button>
+  </div>`;
+}
+function trophiesHtml() {
+  const list = computeBadges();
+  const got = list.filter((b) => b.n > 0).length;
+  return `<details class="fun">
+    <summary><span class="name">🏆 Nos trophées</span><span class="small muted">${got} / ${list.length}</span></summary>
+    <div class="badges">${list.map((b) => `
+      <div class="badge${b.n ? "" : " locked"}">
+        <span class="em">${b.em}</span><b>${esc(b.name)}</b><small>${esc(b.how)}</small>
+        ${b.n ? `<span class="n">${b.once ? "Obtenu" : "× " + b.n}</span>` : ""}
+        ${b.extra ? `<small style="margin-top:4px">${esc(b.extra)}</small>` : ""}
+      </div>`).join("")}</div>
+    <p class="small muted fun-note" style="padding-top:0">Trophées communs, calculés sur les 12 derniers mois.</p>
+  </details>`;
+}
+
+/* ---------- Duel amical ---------- */
+function duelHtml() {
+  const exps = S.expenses.filter((e) => e.month === S.month);
+  if (!exps.length) return "";
+  const uids = Object.keys(USERS);
+  const rows = [
+    { label: "Dépenses saisies", v: (u) => exps.filter((e) => e.uid === u).length },
+    { label: "Dépenses pointées", v: (u) => exps.filter((e) => e.accountId !== CASH && e.reconciled && e.reconciledBy === u).length },
+    { label: "Jours de saisie", v: (u) => new Set(exps.filter((e) => e.uid === u).map((e) => e.date)).size }
+  ].map((r) => ({ label: r.label, vals: uids.map(r.v) }));
+  const score = [0, 1].map((i) => rows.filter((r) => r.vals[i] > r.vals[1 - i]).length);
+  const mName = monthLabel(S.month).split(" ")[0].toLowerCase();
+  const lead = score[0] === score[1] ? "Égalité parfaite 🤝" : `${esc(USERS[uids[score[0] > score[1] ? 0 : 1]])} mène 👑`;
+  return `<details class="fun">
+    <summary><span class="name">⚔️ Duel ${/^[aeiouyéèàâ]/.test(mName) ? "d'" : "de "}${esc(mName)}</span>
+      <span class="small muted">${esc(USERS[uids[0]])} ${score[0]} – ${score[1]} ${esc(USERS[uids[1]])}</span></summary>
+    <table class="duel">
+      <tr><th></th>${uids.map((u) => `<th>${esc(USERS[u])}</th>`).join("")}</tr>
+      ${rows.map((r) => `<tr><td>${r.label}</td>${r.vals.map((v, i) => {
+        const win = v > r.vals[1 - i];
+        return `<td class="${win ? "win" : ""}">${v}${win ? " 👑" : ""}</td>`;
+      }).join("")}</tr>`).join("")}
+    </table>
+    <p class="small muted fun-note">${lead} · Pour le plaisir : aucun effet sur le budget.</p>
+  </details>`;
 }
 
 /* ---------- Dépenses ---------- */
@@ -969,6 +1204,8 @@ const actions = {
   closeDialog(id) { $("#" + id).close(); },
   showAccount(id) { S.expAcc = id; S.expCat = "all"; S.expRec = "all"; S.tab = "exp"; render(); window.scrollTo(0, 0); },
   ackAlerts() { lsSet(seenKey(), currentStatuses(stats(NOW_MONTH))); render(); },
+  hidePhrase() { lsSet("bb_phrase_hidden", todayStr()); render(); },
+  ackTrophies() { lsSet(trophyKey(), computeBadges().filter((b) => b.n > 0).map((b) => b.id)); render(); },
 
   async seed() {
     if (S.cats.length) return;
@@ -1106,11 +1343,15 @@ document.addEventListener("change", async (e) => {
   if (t.id === "f-rec") { S.expRec = t.value; render(); return; }
   if (t.dataset.rec) {
     const on = t.checked;
+    // Dernière dépense bancaire du mois à pointer : petite fête
+    const ex = S.expenses.find((x) => x.id === t.dataset.rec);
+    const allDone = on && !!ex && S.expenses.every((x) => x.month !== ex.month || x.accountId === CASH || x.id === ex.id || x.reconciled);
+    if (allDone) confetti();
     try {
       await updateDoc(doc(db, "expenses", t.dataset.rec), on
         ? { reconciled: true, reconciledBy: S.user.uid, reconciledAt: serverTimestamp() }
         : { reconciled: false, reconciledBy: null, reconciledAt: null });
-      toast(on ? "Dépense rapprochée" : "Rapprochement annulé");
+      toast(allDone ? `Tout est rapproché pour ${monthLabel(ex.month).toLowerCase()} 🎉` : on ? "Dépense rapprochée" : "Rapprochement annulé");
     } catch (err) { t.checked = !on; fail(err); }
     return;
   }

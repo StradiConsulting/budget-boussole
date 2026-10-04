@@ -1,5 +1,5 @@
 // Garde l'interface disponible hors connexion. Les données restent gérées par Firebase.
-const CACHE = "budget-boussole-v1";
+const CACHE = "budget-boussole-v3";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
